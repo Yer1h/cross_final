@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "561252289076",
+    "project_id": "invent-423e7",
+    "storage_bucket": "invent-423e7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:561252289076:android:36751f3be329668c4d1861",
+        "android_client_info": {
+          "package_name": "com.example.untitled2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANL8q4qxfO5TVaXxpiQn5zEOm7jzYemPY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
