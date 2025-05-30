@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:invent_app_redesign/screens/login_screen.dart';
 
 class BarcodePage extends StatefulWidget {
   const BarcodePage({super.key});
@@ -32,7 +33,6 @@ class _BarcodePageState extends State<BarcodePage> {
             builder: (context) => ProductDetailPage(product: product),
           ),
         ).then((_) {
-          // Разрешаем повторное сканирование после возврата
           setState(() {
             isScanning = true;
             lastScannedCode = null;
@@ -61,29 +61,42 @@ class _BarcodePageState extends State<BarcodePage> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: isScanning
-          ? MobileScanner(
-              controller: MobileScannerController(),
-              onDetect: (BarcodeCapture capture) {
-                final Barcode? barcode = capture.barcodes.firstOrNull;
-                final String? code = barcode?.rawValue;
-                if (code != null && code != lastScannedCode) {
-                  lastScannedCode = code;
-                  _onBarcodeScanned(code);
-                }
-              },
-            )
-          : const Center(
+      child: FutureBuilder<bool>(
+        future: NetworkService.isOnline(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData && !snapshot.data!) {
+            return const Center(
               child: Text(
-                'Пожалуйста, подождите...',
+                'Barcode scanning unavailable offline',
                 style: TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
               ),
+            );
+          }
+          return isScanning
+              ? MobileScanner(
+            controller: MobileScannerController(),
+            onDetect: (BarcodeCapture capture) {
+              final Barcode? barcode = capture.barcodes.firstOrNull;
+              final String? code = barcode?.rawValue;
+              if (code != null && code != lastScannedCode) {
+                lastScannedCode = code;
+                _onBarcodeScanned(code);
+              }
+            },
+          )
+              : const Center(
+            child: Text(
+              'Пожалуйста, подождите...',
+              style: TextStyle(fontSize: 16),
             ),
+          );
+        },
+      ),
     );
   }
 }
 
-// Временная заглушка для экрана с деталями товара
 class ProductDetailPage extends StatelessWidget {
   final QueryDocumentSnapshot product;
   const ProductDetailPage({super.key, required this.product});

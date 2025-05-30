@@ -1,6 +1,10 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'home_screen.dart';  // Не забудь импортировать свой HomeScreen
+import 'package:invent_app_redesign/screens/home_screen.dart';
+import 'package:invent_app_redesign/screens/pin_login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,12 +13,44 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+class LocalStorageService {
+  static Future<void> saveGuestLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isGuest', true);
+  }
+
+  static Future<void> clearLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('isGuest');
+  }
+
+  static Future<bool> isGuest() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('isGuest') ?? false;
+  }
+}
+
+class NetworkService {
+  static final _connectivity = Connectivity();
+
+  static Future<bool> isOnline() async {
+    final result = await _connectivity.checkConnectivity();
+    return result != ConnectivityResult.none;
+  }
+
+  static Stream<bool> get connectivityStream =>
+      _connectivity.onConnectivityChanged.map(
+            (result) => result != ConnectivityResult.none,
+      );
+}
+
 class _LoginScreenState extends State<LoginScreen> {
   bool isSignIn = true;
   bool isLoading = false;
 
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  final _storage = const FlutterSecureStorage();
 
   void showMsg(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -79,7 +115,23 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
-      // Firebase will auto-redirect via authStateChanges
+
+      if (!mounted) return;
+      // Check if PIN is set
+      String? storedPin = await _storage.read(key: 'user_pin');
+      if (storedPin == null) {
+        // Navigate to PinLoginScreen to set PIN
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PinLoginScreen()),
+        );
+      } else {
+        // Navigate to Home-screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       String errorMsg;
       switch (e.code) {
@@ -174,36 +226,45 @@ class _LoginScreenState extends State<LoginScreen> {
                   isLoading
                       ? const CircularProgressIndicator()
                       : ElevatedButton(
-                          onPressed: () {
-                            final email = emailController.text.trim();
-                            final password = passwordController.text.trim();
-                            isSignIn
-                                ? signIn(email, password)
-                                : signUp(email, password);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF111827),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            minimumSize: const Size(double.infinity, 50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            isSignIn ? "Sign In" : "Sign Up",
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                  const SizedBox(height: 16),
-                  // Добавили кнопку для гостя 👇
-                  TextButton(
                     onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const HomeScreen(),
-                        ),
-                      );
+                      final email = emailController.text.trim();
+                      final password = passwordController.text.trim();
+                      isSignIn
+                          ? signIn(email, password)
+                          : signUp(email, password);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF111827),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      isSignIn ? "Sign In" : "Sign Up",
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () async {
+                      await LocalStorageService.saveGuestLogin();
+                      // Check if PIN is set
+                      String? storedPin = await _storage.read(key: 'user_pin');
+                      if (storedPin == null) {
+                        // Navigate to PinLoginScreen to set PIN
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const PinLoginScreen()),
+                        );
+                      } else {
+                        // Navigate to HomeScreen
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        );
+                      }
                     },
                     child: const Text(
                       'Continue as guest',

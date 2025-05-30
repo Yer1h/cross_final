@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:hive/hive.dart';
 import 'package:invent_app_redesign/services/auth_service.dart';
+import 'package:invent_app_redesign/screens/login_screen.dart';
 
 class LocaleProvider with ChangeNotifier {
   Locale _locale = const Locale('en');
@@ -13,10 +15,17 @@ class LocaleProvider with ChangeNotifier {
   }
 
   Future<void> _loadLocale() async {
+    final box = Hive.box('settings');
     final user = FirebaseAuth.instance.currentUser;
+
     if (user != null) {
       final prefs = await _authService.loadUserPreferences(user.uid);
-      final langCode = prefs['language'] ?? 'en';
+      final langCode = prefs['language'] ?? box.get('language', defaultValue: 'en') as String;
+      _locale = Locale(langCode);
+      await box.put('language', langCode);
+      notifyListeners();
+    } else {
+      final langCode = box.get('language', defaultValue: 'en') as String;
       _locale = Locale(langCode);
       notifyListeners();
     }
@@ -26,9 +35,12 @@ class LocaleProvider with ChangeNotifier {
     _locale = Locale(languageCode);
     notifyListeners();
 
+    final box = Hive.box('settings');
+    await box.put('language', languageCode);
+
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final theme = ''; // не трогаем тему отсюда
+    if (user != null && (await NetworkService.isOnline())) {
+      final theme = '';
       await _authService.saveUserPreferences(user.uid, theme, languageCode);
     }
   }

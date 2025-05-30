@@ -4,6 +4,7 @@ import 'package:invent_app_redesign/providers/theme_provider.dart';
 import 'package:invent_app_redesign/providers/locale_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:invent_app_redesign/services/auth_service.dart';
+import 'edit_profile_page.dart';
 
 class SettingsPage extends StatelessWidget {
   final AuthService _authService = AuthService();
@@ -19,256 +20,199 @@ class SettingsPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Settings'),
         centerTitle: true,
+        elevation: 0,
+        backgroundColor: colorScheme.surface,
       ),
-      body: Padding(
+      body: user == null
+          ? _buildUnauthenticatedUI(context, colorScheme)
+          : ListView(
         padding: const EdgeInsets.all(16.0),
-        child: user == null
-            ? _buildUnauthenticatedUI(context)
-            : ListView(
-          children: [
-            _buildUserInfo(user),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Preferences'),
-            _buildThemeSelector(themeProvider, context),
-            _buildLanguageSelector(localeProvider, context),
-            const SizedBox(height: 24),
-            _buildSectionTitle('Account'),
-            _buildAccountSettings(context, user),
-            const SizedBox(height: 32),
-            _buildLogoutButton(context, colorScheme),
-          ],
-        ),
+        children: [
+          _buildUserInfo(context, user),
+          const SizedBox(height: 24),
+          _buildSectionTitle('Preferences', colorScheme),
+          _buildThemeSelector(themeProvider, context),
+          const SizedBox(height: 12),
+          _buildLanguageSelector(localeProvider, context),
+          const SizedBox(height: 24),
+          _buildLogoutButton(context, colorScheme),
+        ],
       ),
     );
   }
 
-  Widget _buildUnauthenticatedUI(BuildContext context) {
+  Widget _buildUnauthenticatedUI(BuildContext context, ColorScheme colorScheme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.lock_outline, size: 80, color: Colors.grey.shade400),
+          Icon(Icons.lock_outline, size: 80, color: colorScheme.onSurface.withOpacity(0.6)),
           const SizedBox(height: 24),
           Text(
-            'Authentication Required',
+            'Sign In Required',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade600,
+              color: colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32.0),
             child: Text(
-              'Please sign in to access all settings and personalize your experience.',
+              'Sign in to access personalized settings and manage your account.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey.shade600,
+                color: colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
           ),
           const SizedBox(height: 32),
-          FilledButton(
-            onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-            child: const Text('Sign In'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pushNamed(context, '/signin'),
+                child: const Text('Sign In'),
+              ),
+              const SizedBox(width: 16),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                  side: BorderSide(color: colorScheme.primary),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => Navigator.pushNamed(context, '/signup'),
+                child: const Text('Sign Up'),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildUserInfo(User user) {
-    return Row(
-      children: [
-        CircleAvatar(
+  Widget _buildUserInfo(BuildContext context, User user) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => EditProfilePage(user: user)),
+          );
+        },
+        leading: CircleAvatar(
+          backgroundImage: user.photoURL != null
+              ? NetworkImage(user.photoURL!)
+              : null,
           backgroundColor: Colors.blue.shade100,
-          child: const Icon(Icons.person, color: Colors.blue),
+          radius: 24,
+          child: user.photoURL == null
+              ? const Icon(Icons.person, color: Colors.blue)
+              : null,
         ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Logged in as',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            Text(
-              user.email ?? 'No email found',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        title: Text(
+          user.displayName ?? user.email ?? 'No email found',
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
-      ],
+        subtitle: const Text(
+          'Tap to edit profile',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(String title, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.grey,
+          color: colorScheme.onSurface.withOpacity(0.6),
         ),
       ),
     );
   }
 
   Widget _buildThemeSelector(ThemeProvider themeProvider, BuildContext context) {
+    // Ensure themeName is valid; default to 'system' if invalid
+    final validTheme = ['light', 'dark', 'system'].contains(themeProvider.themeName)
+        ? themeProvider.themeName
+        : 'system';
+
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: themeProvider.themeName,
-            items: const [
-              DropdownMenuItem(value: 'light', child: Text('Light Theme')),
-              DropdownMenuItem(value: 'dark', child: Text('Dark Theme')),
-            ],
-            onChanged: (value) => themeProvider.setTheme(value!),
-            hint: const Text('Select Theme'),
-            borderRadius: BorderRadius.circular(12),
-            dropdownColor: Theme.of(context).cardColor,
-          ),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        title: const Text('Theme'),
+        trailing: DropdownButton<String>(
+          value: validTheme,
+          items: const [
+            DropdownMenuItem(value: 'light', child: Text('Light')),
+            DropdownMenuItem(value: 'dark', child: Text('Dark')),
+            DropdownMenuItem(value: 'system', child: Text('System')),
+          ],
+          onChanged: (value) => themeProvider.setTheme(value!),
+          underline: const SizedBox(),
+          borderRadius: BorderRadius.circular(12),
         ),
       ),
     );
   }
 
   Widget _buildLanguageSelector(LocaleProvider localeProvider, BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: localeProvider.locale.languageCode,
-            items: const [
-              DropdownMenuItem(value: 'en', child: Text('English')),
-              DropdownMenuItem(value: 'ru', child: Text('Русский')),
-              DropdownMenuItem(value: 'kk', child: Text('Қазақша')),
-            ],
-            onChanged: (value) => localeProvider.setLanguage(value!),
-            borderRadius: BorderRadius.circular(12),
-            dropdownColor: Theme.of(context).cardColor,
-          ),
-        ),
-      ),
-    );
-  }
+    // Ensure languageCode is valid; default to 'en' if invalid
+    final validLanguage = ['en', 'ru', 'kk'].contains(localeProvider.locale.languageCode)
+        ? localeProvider.locale.languageCode
+        : 'en';
 
-  Widget _buildAccountSettings(BuildContext context, User user) {
-    return Column(
-      children: [
-        ListTile(
-          leading: const Icon(Icons.lock_reset),
-          title: const Text('Change Password'),
-          trailing: const Icon(Icons.chevron_right),
-          shape: _listTileBorder(context),
-          onTap: () async {
-            final email = user.email;
-            if (email != null) {
-              try {
-                await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Password reset instructions sent to your email')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ${e.toString()}')),
-                );
-              }
-            }
-          },
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        title: const Text('Language'),
+        trailing: DropdownButton<String>(
+          value: validLanguage,
+          items: const [
+            DropdownMenuItem(value: 'en', child: Text('English')),
+            DropdownMenuItem(value: 'ru', child: Text('Русский')),
+            DropdownMenuItem(value: 'kk', child: Text('Қазақша')),
+          ],
+          onChanged: (value) => localeProvider.setLanguage(value!),
+          underline: const SizedBox(),
+          borderRadius: BorderRadius.circular(12),
         ),
-        const Divider(height: 1),
-        ListTile(
-          leading: const Icon(Icons.delete_outline, color: Colors.red),
-          title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
-          trailing: const Icon(Icons.chevron_right, color: Colors.red),
-          shape: _listTileBorder(context),
-          onTap: () => _confirmAccountDeletion(context),
-        ),
-      ],
+      ),
     );
   }
 
   Widget _buildLogoutButton(BuildContext context, ColorScheme colorScheme) {
     return OutlinedButton.icon(
       icon: const Icon(Icons.logout),
-      label: const Text('Logout'),
+      label: const Text('Sign Out'),
       style: OutlinedButton.styleFrom(
         foregroundColor: colorScheme.error,
         side: BorderSide(color: colorScheme.error),
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      onPressed: () async => await _authService.signOut(),
+      onPressed: () async {
+        await _authService.signOut();
+        Navigator.pushNamedAndRemoveUntil(context, '/signin', (route) => false);
+      },
     );
-  }
-
-  RoundedRectangleBorder _listTileBorder(BuildContext context) {
-    return RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: Theme.of(context).dividerColor),
-    );
-  }
-
-  Future<void> _confirmAccountDeletion(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Account?'),
-        content: const Text('This action is permanent and will remove all your data.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
-            child: const Text('Delete Account'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      try {
-        await FirebaseAuth.instance.currentUser?.delete();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account successfully deleted')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
-        );
-      }
-    }
   }
 }
